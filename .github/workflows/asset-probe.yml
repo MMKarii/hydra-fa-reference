@@ -13,24 +13,27 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe temporary transfer client
+      - name: Inspect temporary transfer client chunks
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://firestorage.ai'
-          curl -fsSL "$BASE/_next/static/chunks/app/(files)/ja/f/page-4d19ae0a4ce39d79.js" -o chunk.js
+          BASE='https://firestorage.ai/_next/static/chunks'
+          for f in 8500-f4d7bfbe7500f274.js 8437-d65cc193dc908afa.js 5841-1160578ba9bb4f3e.js 4899-d89df949f2dbd5af.js; do
+            curl -fsSL "${BASE}/${f}" -o "$f"
+          done
           python - <<'PY'
           import re
           from pathlib import Path
-          text=Path('chunk.js').read_text(encoding='utf-8',errors='replace')
-          print('chunk-bytes',len(text))
-          terms=['/api/','fetch(','download','share','file','signed','presign']
-          for term in terms:
-              print('\nTERM',term)
-              for m in list(re.finditer(re.escape(term),text,re.I))[:30]:
-                  a=max(0,m.start()-220); b=min(len(text),m.end()+420)
-                  print(text[a:b][:700])
-          urls=sorted(set(re.findall(r'["\']([^"\']*(?:api|download)[^"\']*)["\']',text,re.I)))
-          print('\nCANDIDATES')
-          for u in urls[:100]: print(u)
+          for p in Path('.').glob('*.js'):
+              text=p.read_text(encoding='utf-8',errors='replace')
+              print('\nFILE',p,'bytes',len(text))
+              for term in ['/api/','fetch(','download','presign','shareId','publicId']:
+                  hits=list(re.finditer(re.escape(term),text,re.I))
+                  if not hits: continue
+                  print('TERM',term,'hits',len(hits))
+                  for m in hits[:12]:
+                      a=max(0,m.start()-180); b=min(len(text),m.end()+360)
+                      print(text[a:b].replace('\n',' ')[:600])
+              for u in sorted(set(re.findall(r'[\"\']([^\"\']*(?:api|download|share)[^\"\']*)[\"\']',text,re.I)))[:80]:
+                  print('CANDIDATE',u)
           PY
