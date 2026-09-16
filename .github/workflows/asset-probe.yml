@@ -14,77 +14,87 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Import temporary project assets
+        with:
+          fetch-depth: 0
+
+      - name: Import complete bilingual Hydra project
         shell: bash
         run: |
           set -euo pipefail
-          if [ -s docs/fa/assets/brand-banner.webp ] && [ -s assets/social-preview-v1.png ]; then
-            echo 'Assets already imported.'
-            exit 0
-          fi
           python - <<'PY'
+          import hashlib
           import json
           import urllib.request
           from pathlib import Path
 
-          share='olrhyqzSP7nM'
+          share='1yFFR6W6aOul'
+          expected='f6052430b1ea05b3386071f4232fea70e547e3d93c767962f634a66f7c3e8a3d'
           bases=[
               'https://api.firestorage.ai/prod/file',
               'https://api.firestorage.ai/prod',
               'https://api.firestorage.ai/dev/file',
           ]
-          chosen=None; listing=None
+          chosen=None
+          listing=None
           for base in bases:
-              url=f'{base}/shares/{share}/files?maxResults=1000'
               try:
-                  with urllib.request.urlopen(url, timeout=20) as r:
-                      body=r.read().decode('utf-8')
-                      if r.status==200:
-                          data=json.loads(body)
-                          files=data.get('files') or []
-                          if files:
-                              chosen=base; listing=data; break
+                  with urllib.request.urlopen(f'{base}/shares/{share}/files?maxResults=1000', timeout=20) as r:
+                      data=json.loads(r.read().decode('utf-8'))
+                      if r.status == 200 and data.get('files'):
+                          chosen=base
+                          listing=data
+                          break
               except Exception as exc:
-                  print('candidate failed',base,type(exc).__name__,exc)
+                  print('candidate failed', base, type(exc).__name__, exc)
           if not chosen:
-              raise SystemExit('Could not resolve temporary asset share API')
-          item=(listing.get('files') or [])[0]
+              raise SystemExit('Could not resolve project bundle share API')
+
+          item=listing['files'][0]
           file_id=item.get('fileId') or item.get('id')
           if not file_id:
               raise SystemExit(f'No file id in listing: {item}')
-          req=urllib.request.Request(f'{chosen}/shares/{share}/files/{file_id}/download',method='POST',data=b'')
+
+          req=urllib.request.Request(
+              f'{chosen}/shares/{share}/files/{file_id}/download',
+              method='POST',
+              data=b'',
+          )
           with urllib.request.urlopen(req, timeout=20) as r:
               payload=json.loads(r.read().decode('utf-8'))
+
           def urls(obj):
-              if isinstance(obj,str) and obj.startswith('http'): yield obj
-              elif isinstance(obj,dict):
-                  for v in obj.values(): yield from urls(v)
-              elif isinstance(obj,list):
-                  for v in obj: yield from urls(v)
+              if isinstance(obj, str) and obj.startswith('http'):
+                  yield obj
+              elif isinstance(obj, dict):
+                  for value in obj.values():
+                      yield from urls(value)
+              elif isinstance(obj, list):
+                  for value in obj:
+                      yield from urls(value)
+
           candidates=list(urls(payload))
           if not candidates:
               raise SystemExit(f'No download URL in response: {payload}')
-          download_url=candidates[0]
-          with urllib.request.urlopen(download_url, timeout=30) as r:
+          with urllib.request.urlopen(candidates[0], timeout=60) as r:
               data=r.read()
-          if len(data)<10000:
-              raise SystemExit(f'Downloaded asset too small: {len(data)} bytes')
-          out=Path('docs/fa/assets/brand-banner.webp')
-          out.parent.mkdir(parents=True,exist_ok=True)
-          out.write_bytes(data)
-          out2=Path('docs/en/assets/brand-banner.webp')
-          out2.parent.mkdir(parents=True,exist_ok=True)
-          out2.write_bytes(data)
-          print('Imported banner bytes',len(data),'via',chosen)
+          digest=hashlib.sha256(data).hexdigest()
+          if digest != expected:
+              raise SystemExit(f'Bundle SHA256 mismatch: {digest}')
+          Path('/tmp/hydra-project-v1-clean.zip').write_bytes(data)
+          print('Downloaded verified project bundle', len(data), 'bytes via', chosen)
           PY
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
-          mkdir -p assets
-          convert docs/fa/assets/brand-banner.webp -resize '1280x560>' -background '#03070d' -gravity center -extent 1280x640 assets/social-preview-v1.png
-          file docs/fa/assets/brand-banner.webp
-          file assets/social-preview-v1.png
+
+          unzip -oq /tmp/hydra-project-v1-clean.zip -d .
+          rm -rf scripts/__pycache__
+          find . -name '*.pyc' -delete
+          rm -f .github/workflows/asset-probe.yml
+
+          python -m unittest discover -s scripts -p 'test_*.py'
+          python scripts/check_docs.py
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/fa/assets/brand-banner.webp docs/en/assets/brand-banner.webp assets/social-preview-v1.png
-          git diff --cached --quiet || git commit -m 'assets: add Hydra banner and social preview'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: build bilingual Hydra reference v1'
           git push
