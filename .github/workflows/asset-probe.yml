@@ -23,8 +23,12 @@ jobs:
           from pathlib import Path
           text = Path('page.html').read_text(encoding='utf-8', errors='replace')
           print('page-bytes', len(text.encode()))
-          for u in sorted(set(re.findall(r'https?://[^"\'<> ]+|href=["\']([^"\']+)', text))):
-              print(u)
-          print('webp refs:', re.findall(r'[^"\'<> ]+\.webp[^"\'<> ]*', text)[:20])
-          print('download refs:', [x for x in re.findall(r'[^"\'<> ]+', text) if 'download' in x.lower()][:30])
+          for key in ['olrhyqzSP7nM','pCbY1LLMZYMrJkxX','01a0a8ba99d47715a7c21947ab85d2e2','brand-banner','api/','download','shareId','publicId','subdir']:
+              print('\nKEY', key)
+              for m in list(re.finditer(re.escape(key), text, re.I))[:20]:
+                  a=max(0,m.start()-240); b=min(len(text),m.end()+400)
+                  print(text[a:b].replace('\n',' ')[:800])
+          scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)', text)
+          print('\nSCRIPTS')
+          for s in scripts: print(s)
           PY
