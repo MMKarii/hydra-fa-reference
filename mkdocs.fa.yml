@@ -1,0 +1,93 @@
+site_name: مرجع حرفه‌ای Hydra به زبان فارسی
+site_description: مستند حرفه‌ای فارسی Hydra برای ممیزی مجاز رمز عبور، آزمون احراز هویت آزمایشگاهی و اعتبارسنجی دفاعی
+site_author: MMKarii
+site_url: https://mmkarii.github.io/hydra-fa-reference/fa/
+repo_url: https://github.com/MMKarii/hydra-fa-reference
+repo_name: MMKarii/hydra-fa-reference
+edit_uri: edit/main/docs/fa/
+docs_dir: docs/fa
+site_dir: site/fa
+copyright: CC BY 4.0 · MMKarii
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: fa
+  direction: rtl
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: حالت تاریک
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: حالت روشن
+
+plugins:
+  - search:
+      lang:
+        - fa
+        - en
+      separator: '[\s\-\u200c،؛,;:()/]+'
+
+extra:
+  social_image_url: https://mmkarii.github.io/hydra-fa-reference/assets/social-preview-v1.png
+  alternate:
+    - name: فارسی
+      link: /hydra-fa-reference/fa/
+      lang: fa
+    - name: English
+      link: /hydra-fa-reference/en/
+      lang: en
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+
+nav:
+  - خانه: index.md
+  - شروع:
+      - مسیر یادگیری: learning-path.md
+      - برگه تقلب: cheatsheet.md
+      - واژه‌نامه دوزبانه: glossary.md
+  - مبانی:
+      - "۱. معرفی بنیادین Hydra": 01-introduction.md
+      - "۲. نصب و بررسی": 02-installation.md
+      - "۳. Syntax و ساختار دستور": 03-syntax.md
+      - "۴. ورودی‌های Credential": 04-credential-inputs.md
+  - آزمایشگاه:
+      - "۵. آزمایشگاه SSH": 05-ssh-lab.md
+      - "۶. آزمایشگاه FTP": 06-ftp-lab.md
+      - "۷. فرم‌های HTTP/HTTPS": 07-http-form-basics.md
+      - "۸. تشخیص نتیجه Login": 08-login-result-detection.md
+  - عملیات و دفاع:
+      - "۹. مرور پروتکل‌ها": 09-protocol-overview.md
+      - "۱۰. اجرای ایمن Lab": 10-safe-lab-operation.md
+      - "۱۱. خروجی و گزارش": 11-output-reporting.md
+      - "۱۲. کنترل‌های دفاعی": 12-defensive-controls.md
+  - تحلیل:
+      - "۱۳. عیب‌یابی": 13-troubleshooting.md
+      - "۱۴. اشتباهات رایج": 14-common-mistakes.md
+  - منابع: references.md
+  - سلب مسئولیت: disclaimer.md
