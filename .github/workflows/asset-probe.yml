@@ -13,22 +13,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe temporary transfer page
+      - name: Probe temporary transfer client
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL -A 'Mozilla/5.0' 'https://firestorage.ai/ja/f/olrhyqzSP7nM' -o page.html
+          BASE='https://firestorage.ai'
+          curl -fsSL "$BASE/_next/static/chunks/app/(files)/ja/f/page-4d19ae0a4ce39d79.js" -o chunk.js
           python - <<'PY'
           import re
           from pathlib import Path
-          text = Path('page.html').read_text(encoding='utf-8', errors='replace')
-          print('page-bytes', len(text.encode()))
-          for key in ['olrhyqzSP7nM','pCbY1LLMZYMrJkxX','01a0a8ba99d47715a7c21947ab85d2e2','brand-banner','api/','download','shareId','publicId','subdir']:
-              print('\nKEY', key)
-              for m in list(re.finditer(re.escape(key), text, re.I))[:20]:
-                  a=max(0,m.start()-240); b=min(len(text),m.end()+400)
-                  print(text[a:b].replace('\n',' ')[:800])
-          scripts = re.findall(r'<script[^>]+src=["\']([^"\']+)', text)
-          print('\nSCRIPTS')
-          for s in scripts: print(s)
+          text=Path('chunk.js').read_text(encoding='utf-8',errors='replace')
+          print('chunk-bytes',len(text))
+          terms=['/api/','fetch(','download','share','file','signed','presign']
+          for term in terms:
+              print('\nTERM',term)
+              for m in list(re.finditer(re.escape(term),text,re.I))[:30]:
+                  a=max(0,m.start()-220); b=min(len(text),m.end()+420)
+                  print(text[a:b][:700])
+          urls=sorted(set(re.findall(r'["\']([^"\']*(?:api|download)[^"\']*)["\']',text,re.I)))
+          print('\nCANDIDATES')
+          for u in urls[:100]: print(u)
           PY
