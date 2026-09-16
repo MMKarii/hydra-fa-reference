@@ -7,33 +7,84 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Inspect temporary transfer client chunks
+      - uses: actions/checkout@v4
+      - name: Import temporary project assets
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://firestorage.ai/_next/static/chunks'
-          for f in 8500-f4d7bfbe7500f274.js 8437-d65cc193dc908afa.js 5841-1160578ba9bb4f3e.js 4899-d89df949f2dbd5af.js; do
-            curl -fsSL "${BASE}/${f}" -o "$f"
-          done
+          if [ -s docs/fa/assets/brand-banner.webp ] && [ -s assets/social-preview-v1.png ]; then
+            echo 'Assets already imported.'
+            exit 0
+          fi
           python - <<'PY'
-          import re
+          import json
+          import urllib.request
           from pathlib import Path
-          for p in Path('.').glob('*.js'):
-              text=p.read_text(encoding='utf-8',errors='replace')
-              print('\nFILE',p,'bytes',len(text))
-              for term in ['/api/','fetch(','download','presign','shareId','publicId']:
-                  hits=list(re.finditer(re.escape(term),text,re.I))
-                  if not hits: continue
-                  print('TERM',term,'hits',len(hits))
-                  for m in hits[:12]:
-                      a=max(0,m.start()-180); b=min(len(text),m.end()+360)
-                      print(text[a:b].replace('\n',' ')[:600])
-              for u in sorted(set(re.findall(r'[\"\']([^\"\']*(?:api|download|share)[^\"\']*)[\"\']',text,re.I)))[:80]:
-                  print('CANDIDATE',u)
+
+          share='olrhyqzSP7nM'
+          bases=[
+              'https://api.firestorage.ai/prod/file',
+              'https://api.firestorage.ai/prod',
+              'https://api.firestorage.ai/dev/file',
+          ]
+          chosen=None; listing=None
+          for base in bases:
+              url=f'{base}/shares/{share}/files?maxResults=1000'
+              try:
+                  with urllib.request.urlopen(url, timeout=20) as r:
+                      body=r.read().decode('utf-8')
+                      if r.status==200:
+                          data=json.loads(body)
+                          files=data.get('files') or []
+                          if files:
+                              chosen=base; listing=data; break
+              except Exception as exc:
+                  print('candidate failed',base,type(exc).__name__,exc)
+          if not chosen:
+              raise SystemExit('Could not resolve temporary asset share API')
+          item=(listing.get('files') or [])[0]
+          file_id=item.get('fileId') or item.get('id')
+          if not file_id:
+              raise SystemExit(f'No file id in listing: {item}')
+          req=urllib.request.Request(f'{chosen}/shares/{share}/files/{file_id}/download',method='POST',data=b'')
+          with urllib.request.urlopen(req, timeout=20) as r:
+              payload=json.loads(r.read().decode('utf-8'))
+          def urls(obj):
+              if isinstance(obj,str) and obj.startswith('http'): yield obj
+              elif isinstance(obj,dict):
+                  for v in obj.values(): yield from urls(v)
+              elif isinstance(obj,list):
+                  for v in obj: yield from urls(v)
+          candidates=list(urls(payload))
+          if not candidates:
+              raise SystemExit(f'No download URL in response: {payload}')
+          download_url=candidates[0]
+          with urllib.request.urlopen(download_url, timeout=30) as r:
+              data=r.read()
+          if len(data)<10000:
+              raise SystemExit(f'Downloaded asset too small: {len(data)} bytes')
+          out=Path('docs/fa/assets/brand-banner.webp')
+          out.parent.mkdir(parents=True,exist_ok=True)
+          out.write_bytes(data)
+          out2=Path('docs/en/assets/brand-banner.webp')
+          out2.parent.mkdir(parents=True,exist_ok=True)
+          out2.write_bytes(data)
+          print('Imported banner bytes',len(data),'via',chosen)
           PY
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          mkdir -p assets
+          convert docs/fa/assets/brand-banner.webp -resize '1280x560>' -background '#03070d' -gravity center -extent 1280x640 assets/social-preview-v1.png
+          file docs/fa/assets/brand-banner.webp
+          file assets/social-preview-v1.png
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/fa/assets/brand-banner.webp docs/en/assets/brand-banner.webp assets/social-preview-v1.png
+          git diff --cached --quiet || git commit -m 'assets: add Hydra banner and social preview'
+          git push
