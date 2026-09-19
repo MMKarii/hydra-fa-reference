@@ -9,7 +9,6 @@ from urllib.request import Request, urlopen
 MARKDOWN_LINK_RE=re.compile(r"!?\[[^\]]*\]\((https?://[^)\s]+)\)")
 HTML_LINK_RE=re.compile(r"(?:href|src)=[\"'](https?://[^\"']+)[\"']",re.I)
 WARNING_ONLY_HOSTS={"github.com","raw.githubusercontent.com","img.shields.io"}
-WARNING_ONLY_PREFIXES=("https://mmkarii.github.io/hydra-fa-reference/",)
 
 def classify_http_status(status:int)->str:
     if 200<=status<400:return 'ok'
@@ -18,7 +17,7 @@ def classify_http_status(status:int)->str:
 
 def is_warning_only_url(url:str)->bool:
     host=urlsplit(url).hostname or ''
-    return host in WARNING_ONLY_HOSTS or any(url.startswith(p) for p in WARNING_ONLY_PREFIXES)
+    return host in WARNING_ONLY_HOSTS
 
 def _ascii_url(url:str)->str:
     p=urlsplit(url)
@@ -63,7 +62,7 @@ def main()->int:
     for url,state,msg in results:
         warning_only=is_warning_only_url(url)
         if state=='error' and not warning_only: errors.append(f'{url}: {msg}')
-        elif state in {'warning','error'}: warnings.append(f'{url}: {msg}' + (' (allowlisted/transient)' if warning_only else ''))
+        elif state in {'warning','error'}: warnings.append(f'{url}: {msg}' + (' (rate-limited host allowlist)' if warning_only else ''))
     if warnings:
         print('External link warnings:'); [print('  - '+x) for x in warnings]
     if errors:
