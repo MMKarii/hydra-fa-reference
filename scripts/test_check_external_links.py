@@ -1,6 +1,8 @@
 import io, unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from urllib.error import HTTPError, URLError
-from scripts.check_external_links import _ascii_url, check_url, classify_http_status, is_warning_only_url
+from scripts.check_external_links import _ascii_url, check_url, classify_http_status, collect_external_links, is_warning_only_url
 class _Response:
     def __init__(self,status=200): self.status=status
     def __enter__(self): return self
@@ -11,6 +13,15 @@ class ExternalLinkTests(unittest.TestCase):
     def test_project_pages_urls_are_not_allowlisted(self):
         self.assertFalse(is_warning_only_url('https://mmkarii.github.io/hydra-fa-reference/'))
         self.assertTrue(is_warning_only_url('https://github.com/MMKarii/hydra-fa-reference'))
+    def test_collects_plain_urls_from_config_and_metadata(self):
+        with TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'.github').mkdir()
+            (root/'mkdocs.fa.yml').write_text('repo_url: https://github.com/MMKarii/hydra-fa-reference\n',encoding='utf-8')
+            (root/'.github'/'repository-metadata.md').write_text('Website: https://github.com/MMKarii/hydra-fa-reference/blob/main/docs/fa/index.md\n',encoding='utf-8')
+            links=collect_external_links(root)
+            self.assertIn('https://github.com/MMKarii/hydra-fa-reference',links)
+            self.assertIn('https://github.com/MMKarii/hydra-fa-reference/blob/main/docs/fa/index.md',links)
     def test_unicode_url_is_ascii_encoded(self): _ascii_url('https://example.test/راهنما?q=هیدرا').encode('ascii')
     def test_success(self): self.assertEqual(check_url('https://example.test/',opener=lambda *_a,**_k:_Response(200))[0],'ok')
     def test_404_fails(self):
